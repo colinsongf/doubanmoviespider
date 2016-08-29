@@ -22,3 +22,4 @@ Use scrapy to download movie info from douban movie
 ## To-do
 - Can't parse televation information
 - Slow, try to use proxy
+- Use bit array to store crawled information
