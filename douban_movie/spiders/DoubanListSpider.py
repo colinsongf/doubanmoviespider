@@ -8,7 +8,7 @@ from scrapy.spiders import CrawlSpider,Rule
 from scrapy.http import Request
 from scrapy.selector import HtmlXPathSelector
 from scrapy.linkextractors import LinkExtractor
-from doubanlist.items import DoubanMovieItem
+from douban_movie.items import DoubanMovieItem
 import re
 import logging
 from bitarray import bitarray
@@ -23,6 +23,7 @@ dialect_pattern = re.compile(dialect_pattern_str,re.S)
 
 tag_year = 2016
 count = 0
+#used to restart crawler
 parsedids = bitarray(100000000)
 parsedids.setall(False)
 
@@ -38,14 +39,21 @@ class DoubanListSpider(CrawlSpider):
 	
 	def parse(self, response):
 		global tag_year
+		global parsedids
 		this_page = response.xpath('//span[@class="thispage"]/text()').extract_first()
 		pages = response.xpath('//div[@class="article"]//tr[@class="item"]//a[@class="nbg"]/@href').extract()
 		if pages:
 			id_count = 1
 			for page in pages:
-				print("parsing year %d, with page number %s with count = %d and url = %s"%(tag_year,this_page,id_count,page))
+				page_id = int(page.split('/')[-2])
 				id_count += 1
-				yield Request(page,callback = self.parse_item)
+				if parsedids[page_id]:
+					continue
+				else:
+					parsedids[page_id] = True
+					print("parsing year %d, with page number %s with count = %d and url = %s"%(tag_year,this_page,id_count,page))
+					yield Request(page,callback = self.parse_item)
+					
 		#find next page
 		nextpage = response.xpath('//span[@class="next"]/a/@href').extract_first()
 		if nextpage:
@@ -66,7 +74,6 @@ class DoubanListSpider(CrawlSpider):
 
 	def parse_item(self, response):
 		global count
-		global parsedids
 		if count == 50000000:
 			return
 		else:
@@ -88,7 +95,30 @@ class DoubanListSpider(CrawlSpider):
 			
 			# get movie rate
 			rate = response.xpath("//div[@class='rating_self clearfix']/strong/text()").extract_first()
-			item["movie_rate"] = float(rate.strip() if rate else "2.5")
+			item["movie_rate"] = float(rate.strip() if rate else "-1")
+			
+			# get movie rate people
+			rate_num = response.xpath("//span[@property='v:votes']/text()").extract_first()
+			item["movie_rate_people"] = int(rate_num.strip() if rate_num else "-1")
+			
+			# get hot short comments
+			comments = response.xpath("//div[@id='hot-comments']//div[@class='comment-item']//div[@class='comment']/p/text()").extract()
+			votes = response.xpath("//div[@id='hot-comments']//div[@class='comment-item']//div[@class='comment']//span[@class='votes pr5']/text()").extract()
+			rates = response.xpath("//div[@id='hot-comments']//div[@class='comment-item']//span[@class='comment-info']/span[1]/@title").extract()
+			if len(comments) == len(votes) and len(votes) == len(rates):
+				commentsarray = []
+				for i in range(len(votes)):
+					short_comments = {}
+					short_comments['comment'] = comments[i]
+					short_comments['votes'] = int(votes[i])
+					short_comments['rates'] = rates[i]
+					commentsarray.append(short_comments)
+				item["movie_hot_short_comments"] = commentsarray
+			
+			seenwish = response.xpath("//div[@class='subject-others-interests-ft']//a//text()").extract()
+			if seenwish and len(seenwish) == 2:
+				item['movie_seen'] = int(seenwish[0][:-3])
+				item['movie_wishes'] = int(seenwish[1][:-3])
 			
 			# get movie info
 			info = response.xpath("//div[@id='info']")
@@ -105,7 +135,7 @@ class DoubanListSpider(CrawlSpider):
 			self.add_array("movie_actors",actors,item)
 			
 			time = info.xpath("span[@property='v:runtime']/@content").extract_first()
-			item["movie_time"] = float(time.strip() if time else "0")
+			item["movie_time"] = float(time.strip() if time else "-1")
 			
 			types = info.xpath("span[@property='v:genre']/text()").extract()
 			self.add_array("movie_type",types,item)

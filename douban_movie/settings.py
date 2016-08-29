@@ -36,8 +36,8 @@ DOWNLOADER_MIDDLEWARES = {
     #'douban_movie.middlewares.ProxyMiddleware': 100, #代理需要用到
 }
 
-# download 60 items in 1 minute
-DOWNLOAD_DELAY = 1
+# download 40 items in 1 minute
+DOWNLOAD_DELAY = 1.4
 
 LOG_LEVEL = 'INFO'
 
