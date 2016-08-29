@@ -8,7 +8,7 @@ from scrapy.spiders import CrawlSpider,Rule
 from scrapy.http import Request
 from scrapy.selector import HtmlXPathSelector
 from scrapy.linkextractors import LinkExtractor
-from douban_movie.items import DoubanMovieItem
+from doubanlist.items import DoubanMovieItem
 import re
 import logging
 from bitarray import bitarray
@@ -21,40 +21,53 @@ language_pattern = re.compile(lang_pattern_str,re.S)
 region_pattern = re.compile(region_pattern_str,re.S)
 dialect_pattern = re.compile(dialect_pattern_str,re.S)
 
+tag_year = 2016
 count = 0
 parsedids = bitarray(100000000)
 parsedids.setall(False)
 
-class DoubanSpider(CrawlSpider):
-	name = "douban"
+class DoubanListSpider(CrawlSpider):
+	name = "doubanlist"
 	allowed_domain = ["movie.douban.com"]
+	
+	tag_url  = "https://movie.douban.com/tag/"
+	# use tag to crawl movie data
 	start_urls = [
-		"https://movie.douban.com/subject/25662337", # current famous movie
-		"https://movie.douban.com/subject/1292052/", # classical movie
-		"https://movie.douban.com/subject/1291561/", # cartoon
-		"https://movie.douban.com/subject/26322792/", # love
-		"https://movie.douban.com/subject/25964071/", # comedy
-		"https://movie.douban.com/subject/1889243/", # science
-		"https://movie.douban.com/subject/26356789/", # not famous
-		"https://movie.douban.com/subject/25870483/" # terror
+		"https://movie.douban.com/tag/2016"
 	]
 	
-	#def __init__(self,*a,**kw):
-	#	super(DoubanSpider,self).__init__(*a,**kw)
-		
-	#rules = [
-	#	Rule(LinkExtractor(allow=('from=subject-page')),callback='parse_item',follow=True)
-	#]
+	def parse(self, response):
+		global tag_year
+		this_page = response.xpath('//span[@class="thispage"]/text()').extract_first()
+		pages = response.xpath('//div[@class="article"]//tr[@class="item"]//a[@class="nbg"]/@href').extract()
+		if pages:
+			id_count = 1
+			for page in pages:
+				print("parsing year %d, with page number %s with count = %d and url = %s"%(tag_year,this_page,id_count,page))
+				id_count += 1
+				yield Request(page,callback = self.parse_item)
+		#find next page
+		nextpage = response.xpath('//span[@class="next"]/a/@href').extract_first()
+		if nextpage:
+			print("go to next page")
+			yield Request(nextpage,callback=self.parse)
+		else:
+			# no next page
+			if tag_year >= 1940:	
+				print("no next page, parsing next year %d"%(tag_year-1))
+				tag_year -= 1
+				next_url = self.tag_url+str(tag_year)
+				yield Request(next_url,callback=self.parse)
 	
 	def add_array(self,name,arr,item):
 		item[name]=[]
 		for x in arr:
 			item[name].append(x.strip())
-	
-	def parse(self, response):
+
+	def parse_item(self, response):
 		global count
 		global parsedids
-		if count == 10000000:
+		if count == 50000000:
 			return
 		else:
 			count += 1
@@ -131,16 +144,7 @@ class DoubanSpider(CrawlSpider):
 			item["movie_pic_url"] = pic
 			
 			yield item
-		
-			next_pages = response.xpath("//div[@class='recommendations-bd']/dl/dd/a/@href").extract()
-			if next_pages:
-				for page in next_pages:
-					id = int(page.split('/')[-2])
-					if parsedids[id]:
-						continue
-					else:
-						parsedids[id] = True
-						yield Request(page,callback = self.parse)
+			
 		except Exception,e:
 			# do nothing
 			logging.info("Parse error:%s"%(str(e)))
