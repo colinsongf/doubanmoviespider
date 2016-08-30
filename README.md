@@ -2,6 +2,8 @@
 
 Use scrapy to download movie info from douban movie
 
+this tool is still under development, so bellowing instructions may be changed over time.
+
 ## How to use
 
 - Create a mongodb database movie and collections movies
