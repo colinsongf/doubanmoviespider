@@ -7,6 +7,11 @@
 
 from scrapy import Item,Field
 
+class DoubanMovieIdItem(Item):
+	movie_id = Field()
+	movie_url = Field()
+	parsed = Field()
+
 class DoubanMovieItem(Item):
     # define the fields for your item here like:
 	#电影ID

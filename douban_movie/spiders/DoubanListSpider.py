@@ -12,6 +12,7 @@ from douban_movie.items import DoubanMovieItem
 import re
 import logging
 from bitarray import bitarray
+from pymongo import MongoClient
 
 lang_pattern_str =  ".*语言:</span> (.+?)<br>".decode("utf8")
 region_pattern_str = ".*制片国家/地区:</span>(.+?)<br>".decode("utf8")
@@ -22,7 +23,9 @@ region_pattern = re.compile(region_pattern_str,re.S)
 dialect_pattern = re.compile(dialect_pattern_str,re.S)
 
 tag_year = 2016
-count = 0
+failed_count = 0
+parse_count = 0
+real_parse_count = 0
 #used to restart crawler
 parsedids = bitarray(100000000)
 parsedids.setall(False)
@@ -37,21 +40,37 @@ class DoubanListSpider(CrawlSpider):
 		"https://movie.douban.com/tag/2016"
 	]
 	
+	def __init__(self,*a,**kw):
+		super(DoubanListSpider,self).__init__(*a,**kw)
+		self.client = MongoClient()
+		self.db = self.client.movie
+		self.movies = self.db.movie_test
+		
+		idstr = self.movies.find({},{'movie_id':1})
+		print("restart crawler, already mined %d movies"%(idstr.count()))
+		for ids in idstr:
+			id = int(ids["movie_id"])
+			parsedids[id] = True
+		print("Go!")
+	
 	def parse(self, response):
+		global parse_count
 		global tag_year
 		global parsedids
 		this_page = response.xpath('//span[@class="thispage"]/text()').extract_first()
 		pages = response.xpath('//div[@class="article"]//tr[@class="item"]//a[@class="nbg"]/@href').extract()
 		if pages:
-			id_count = 1
+			id_count = 0
 			for page in pages:
 				page_id = int(page.split('/')[-2])
 				id_count += 1
 				if parsedids[page_id]:
 					continue
 				else:
+					parse_count += 1
 					parsedids[page_id] = True
 					print("parsing year %d, with page number %s with count = %d and url = %s"%(tag_year,this_page,id_count,page))
+					print("parse count = %d"%(parse_count))
 					yield Request(page,callback = self.parse_item)
 					
 		#find next page
@@ -73,13 +92,12 @@ class DoubanListSpider(CrawlSpider):
 			item[name].append(x.strip())
 
 	def parse_item(self, response):
-		global count
-		if count == 50000000:
-			return
-		else:
-			count += 1
+		global failed_count
+		global real_parse_count
 		item = DoubanMovieItem()
 		try:
+			real_parse_count += 1
+			print("real parse count = %d"%(real_parse_count))
 			# get movie id
 			url = response.url
 			id = url.split('/')[-2].strip() 
@@ -178,4 +196,6 @@ class DoubanListSpider(CrawlSpider):
 		except Exception,e:
 			# do nothing
 			logging.info("Parse error:%s"%(str(e)))
+			print("failed_count = %d"%(failed_count+1))
+			failed_count += 1
 			pass

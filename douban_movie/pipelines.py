@@ -10,21 +10,38 @@ import json
 import logging
 from pymongo import MongoClient
 
-class DoubanMoviePipelineWithMongoDB(object):
-	def __init__(self):
-		self.client = MongoClient()
-		self.db = self.client.movie
-		self.movies = self.db.movie_test
-	
+client = MongoClient()
+db = client.movie
+movies = db.movie_test
+movie_id_list = db.movie_id_list
+
+class DoubanMovieIdListPipelineWithMongoDB(object):
 	def process_item(self,item,spider):
+		global movie_id_list
+		if spider.name != "doubanidlist":
+			return
 		try:
-			ret = self.movies.find_one({"movie_id":item['movie_id']})
+			movie_id_list.insert_one(dict(item))
+		except Exception,e:
+			print Exception,":",e
+			pass
+			
+class DoubanMoviePipelineWithMongoDB(object):	
+	def process_item(self,item,spider):
+		global movies
+		if spider.name != "doubanlist":
+			return
+		try:
+			ret = movies.find_one({"movie_id":item['movie_id']})
 			if ret:
 				logging.info("Movie %s to database with id %s is already in database"%(item['movie_name'],item['movie_id']))
 				pass
 			else:
-				self.movies.insert_one(dict(item))
+				movies.insert_one(dict(item))
 				logging.info("Added movie %s to database with id %s"%(item['movie_name'],item['movie_id']))
 		except Exception,e:
 			print("error when insert movie %s with id %s"%(item['movie_name'],item['movie_id']))
 			print Exception,":",e
+
+
+			

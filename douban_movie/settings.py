@@ -25,7 +25,8 @@ COOKIES_ENABLED=False
 
 # save item to database
 ITEM_PIPELINES = {
-	"douban_movie.pipelines.DoubanMoviePipelineWithMongoDB":300
+	"douban_movie.pipelines.DoubanMoviePipelineWithMongoDB":300,
+	"douban_movie.pipelines.DoubanMovieIdListPipelineWithMongoDB":200
 }
 
 # Enable or disable downloader middlewares
@@ -36,8 +37,8 @@ DOWNLOADER_MIDDLEWARES = {
     #'douban_movie.middlewares.ProxyMiddleware': 100, #代理需要用到
 }
 
-# download 40 items in 1 minute
-DOWNLOAD_DELAY = 1.4
+# speed
+DOWNLOAD_DELAY = 0.8
 
 LOG_LEVEL = 'INFO'
 
