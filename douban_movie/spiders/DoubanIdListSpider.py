@@ -13,6 +13,7 @@ import logging
 from bitarray import bitarray
 
 tag_year = 2016
+total_count = 0
 
 #used to restart crawler
 parsed_ids = bitarray(100000000)
@@ -28,9 +29,8 @@ class DoubanListSpider(CrawlSpider):
 		"https://movie.douban.com/tag/2016"
 	]
 	
-	
 	def parse(self, response):
-		global parse_count
+		global total_count
 		global tag_year
 		global parsed_ids
 		this_page_num = response.xpath('//span[@class="thispage"]/text()').extract_first()
@@ -44,6 +44,7 @@ class DoubanListSpider(CrawlSpider):
 					continue
 				else:
 					add_count += 1
+					total_count += 1
 					item = DoubanMovieIdItem()
 					parsed_ids[page_id] = True
 					item['movie_id'] = page_id
@@ -51,7 +52,7 @@ class DoubanListSpider(CrawlSpider):
 					item['parsed'] = False
 					yield item
 		
-		print("parsed %d items in year %d and page %s"%(add_count,tag_year,this_page_num))
+		print("parsed %d items in year %d and page %s, total = %d"%(add_count,tag_year,this_page_num,total_count))
 		#find next page
 		nextpage = response.xpath('//span[@class="next"]/a/@href').extract_first()
 		if nextpage:
@@ -64,4 +65,6 @@ class DoubanListSpider(CrawlSpider):
 				tag_year -= 1
 				next_url = self.tag_url+str(tag_year)
 				yield Request(next_url,callback=self.parse)
+			else:
+				print("total add count = %d"%(total_count))
 	
