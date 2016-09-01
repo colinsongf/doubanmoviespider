@@ -14,6 +14,7 @@ import logging
 from bitarray import bitarray
 from pymongo import MongoClient
 
+# pattern define
 lang_pattern_str =  ".*语言:</span> (.+?)<br>".decode("utf8")
 region_pattern_str = ".*制片国家/地区:</span>(.+?)<br>".decode("utf8")
 dialect_pattern_str = ".*又名:</span>(.+?)<br>".decode("utf8")
@@ -21,6 +22,7 @@ dialect_pattern_str = ".*又名:</span>(.+?)<br>".decode("utf8")
 language_pattern = re.compile(lang_pattern_str,re.S)
 region_pattern = re.compile(region_pattern_str,re.S)
 dialect_pattern = re.compile(dialect_pattern_str,re.S)
+# end pattern define
 
 tag_year = 2016
 failed_count = 0

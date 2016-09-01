@@ -13,7 +13,8 @@ from pymongo import MongoClient
 client = MongoClient()
 db = client.movie
 movies = db.movie_test
-movie_id_list = db.movie_id_list
+movie_id_list = db.id_list
+tags = db.tags
 
 class DoubanMovieIdListPipelineWithMongoDB(object):
 	def process_item(self,item,spider):
@@ -22,6 +23,7 @@ class DoubanMovieIdListPipelineWithMongoDB(object):
 			return
 		try:
 			movie_id_list.insert_one(dict(item))
+			tags.find_one_and_update({'tag':item["movie_tag"]},{'$set':{'page':item["page"]}})
 		except Exception,e:
 			print Exception,":",e
 			pass

@@ -7,10 +7,18 @@
 
 from scrapy import Item,Field
 
+class TagItem(Item):
+	tag = Field()
+	# 0 - not start, 1 - processing, 2 - finished
+	state = Field()
+	page = Field()
+
 class DoubanMovieIdItem(Item):
 	movie_id = Field()
 	movie_url = Field()
 	parsed = Field()
+	movie_tag = Field()
+	page = Field()
 
 class DoubanMovieItem(Item):
     # define the fields for your item here like:
