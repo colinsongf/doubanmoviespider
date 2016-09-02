@@ -21,6 +21,8 @@ NEWSPIDER_MODULE = 'douban_movie.spiders'
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
 
+RANDOMIZE_DOWNLOAD_DELAY = 1
+
 COOKIES_ENABLED=False
 
 # save item to database
@@ -41,6 +43,8 @@ DOWNLOADER_MIDDLEWARES = {
 DOWNLOAD_DELAY = 1.0
 
 LOG_LEVEL = 'INFO'
+
+DOWNLOAD_MAXSIZE = 0
 
 USER_AGENTS = [
     "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; AcooBrowser; .NET CLR 1.1.4322; .NET CLR 2.0.50727)",
