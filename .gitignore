@@ -1,3 +1,4 @@
 /crawls
 *.log
+*.txt
 nohup.out

@@ -23,7 +23,6 @@ class DoubanMovieIdListPipelineWithMongoDB(object):
 			return
 		try:
 			movie_id_list.insert_one(dict(item))
-			tags.find_one_and_update({'tag':item["movie_tag"]},{'$set':{'page':item["page"]}})
 		except Exception,e:
 			print Exception,":",e
 			pass

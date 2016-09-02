@@ -25,7 +25,7 @@ class DoubanIdListSpider(CrawlSpider):
 	allowed_domain = ["movie.douban.com"]
 	tag_url = "https://movie.douban.com/tag/"
 	
-	tag_from_db = False
+	tag_from_db = True
 	
 	# use tag to crawl movie data
 	start_urls = [
@@ -45,7 +45,7 @@ class DoubanIdListSpider(CrawlSpider):
 			ids = self.id_list.find({},{'movie_id':1})
 			for id in ids:
 				parsed_ids[id['movie_id']] = True
-			print("done! Go!")
+			print("Done with %d ids ! Go!"%(ids.count()))
 	
 	def create_tag_item(self,tag,state,page_num):
 		tag_item = TagItem()
@@ -56,67 +56,35 @@ class DoubanIdListSpider(CrawlSpider):
 		
 	def parse(self, response):
 		if self.tag_from_db is False:
+			# add initial tags
 			tags = response.xpath("//td/a/@href").extract()
 			for tagstr in tags:
 				if tagstr.startswith("/tag/"):
 					tag = tagstr[5:]
 					tag_item = self.create_tag_item(tag,0,1)
 					self.tag_col.insert_one(dict(tag_item))
-					yield Request(self.tag_url+tag+"?type=O",callback = self.parse_page)
-		else:
-			not_start_tags = self.tag_col.find({"state":0})
+		print("process resume tags")
+		process_tags = self.tag_col.find({"state":1})
+		if process_tags:
+			for tag in process_tags:
+				yield Request(self.tag_url + tag["tag"] + "?start=" + str((tag["page"]-1)*20) +"&type=O", callback = self.parse_page)
+		print("process not start tags")
+		not_start_tags = self.tag_col.find({"state":0})
+		if not_start_tags:
 			for tag in not_start_tags:
 				yield Request(self.tag_url + tag["tag"] + "?type=O",callback = self.parse_page)
-			process_tags = self.tag_col.find({"state":1})
-			for tag in process_tags:
-				yield Request(self.tag_url + tag["tag"] + "?start=" + str((tag["page"]-1)*20) +"&type=O")
-	
+		
+
 	def parse_page(self, response):
 		global total_count
 		global parsed_ids
 		
 		this_page_num = response.xpath('//span[@class="thispage"]/text()').extract_first()
-		this_page_num = int(this_page_num if this_page_num else "1")
+		no_content = response.xpath("//div[@class='article']//p[@class='pl2']/text()").extract_first()
 		tag = response.xpath("//span[@class='tags-name']/text()").extract_first()
 		
-		# add relate_tag
-		if this_page_num == 1:
-			print('process tag %s'%(tag))
-			self.tag_col.find_one_and_update({'tag':tag},{'$set':{'state':1}})
-			relate_tag = response.xpath("//div[@id='tag_list']/span/a/text()").extract()
-			if relate_tag:
-				for t in relate_tag:
-					ret =  self.tag_col.find_one({'tag':tag})
-					if ret is None:
-						print("add new tag %s"%(tag))
-						self.tag_col.insert_one(dict(self.create_tag_item(t,0,1)))
-						
-		print("start to parse tag %s at page %d"%(tag, this_page_num))			
-		pages = response.xpath('//div[@class="article"]//tr[@class="item"]//a[@class="nbg"]/@href').extract()
-		add_count = 0
-		if pages:
-			for page in pages:
-				page_id = int(page.split('/')[-2])
-				if parsed_ids[page_id]:
-					print("exist id = %s"%(page))
-					continue
-				else:
-					add_count += 1
-					total_count += 1
-					item = DoubanMovieIdItem()
-					parsed_ids[page_id] = True
-					item['movie_id'] = page_id
-					item['movie_url'] = page
-					item['parsed'] = False
-					item['page'] = int(this_page_num)
-					item['movie_tag'] = tag
-					yield item
-		print("add %d ids in tag %s and page %d"%(add_count,tag,this_page_num))
-		#find next page
-		nextpage = response.xpath('//span[@class="next"]/a/@href').extract_first()
-		if nextpage:
-			yield Request(nextpage,callback=self.parse_page)
-		else:
+		# no content
+		if this_page_num is None and no_content and "没有找到符合条件的电影" in no_content:
 			print('finish process tag %s with total count %d'%(tag,total_count))
 			self.tag_col.find_one_and_update({'tag':tag},{'$set':{'state':2}})
 			#find an random tag
@@ -124,3 +92,52 @@ class DoubanIdListSpider(CrawlSpider):
 			if un_mined_tag:
 				print("go to mine tag %s"%(un_mined_tag))
 				yield Request(self.tag_url+un_mined_tag['tag'] + "?type=O",callback=self.parse_page)
+		# has content
+		else:		
+			this_page_num = int(this_page_num if this_page_num else "1")
+			
+			# add relate_tag
+			if this_page_num == 1:
+				print('process tag %s'%(tag))
+				self.tag_col.find_one_and_update({'tag':tag},{'$set':{'state':1}})
+				relate_tag = response.xpath("//div[@id='tag_list']/span/a/text()").extract()
+				if relate_tag:
+					for t in relate_tag:
+						ret =  self.tag_col.find_one({'tag':t})
+						if ret is None:
+							print("add new tag %s"%(t))
+							self.tag_col.insert_one(dict(self.create_tag_item(t,0,1)))
+						else:
+							print("tag %s already in database"%(t))
+							
+			print("start to parse tag %s at page %d"%(tag, this_page_num))			
+			pages = response.xpath('//div[@class="article"]//tr[@class="item"]//a[@class="nbg"]/@href').extract()
+			add_count = 0
+			if pages:
+				for page in pages:
+					page_id = int(page.split('/')[-2])
+					if parsed_ids[page_id]:
+						print("exist id = %s"%(page))
+						continue
+					else:
+						add_count += 1
+						total_count += 1
+						item = DoubanMovieIdItem()
+						parsed_ids[page_id] = True
+						item['movie_id'] = page_id
+						item['movie_url'] = page
+						item['parsed'] = False
+						item['page'] = int(this_page_num)
+						item['movie_tag'] = tag
+						yield item
+			print("add %d ids in tag %s and page %d"%(add_count,tag,this_page_num))
+			self.tag_col.find_one_and_update({'tag':tag},{'$set':{'page':this_page_num}})
+			#find next page
+			nextpage = response.xpath('//span[@class="next"]/a/@href').extract_first()
+			
+			if nextpage:
+				yield Request(nextpage,callback=self.parse_page)
+			else:
+				#try to find next page
+				print("no next page in tag %s, try to find next page %d"%(tag,this_page_num+1))
+				yield Request(self.tag_url + tag + "?start=" + str(this_page_num*20) +"&type=O", callback = self.parse_page)
