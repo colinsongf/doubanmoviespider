@@ -144,4 +144,5 @@ class DoubanIdListSpider(CrawlSpider):
 			else:
 				#try to find next page
 				print("no next page in tag %s, try to find next page %d"%(tag,this_page_num+1))
-				yield Request(self.tag_url + tag + "?start=" + str(this_page_num*20) +"&type=O", callback = self.parse_page)
+				if tag:
+					yield Request(self.tag_url + tag + "?start=" + str(this_page_num*20) +"&type=O", callback = self.parse_page)
