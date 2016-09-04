@@ -13,6 +13,7 @@ import logging
 from bitarray import bitarray
 import time
 from pymongo import MongoClient
+from random import randint
 
 total_count = 0
 
@@ -82,16 +83,19 @@ class DoubanIdListSpider(CrawlSpider):
 		this_page_num = response.xpath('//span[@class="thispage"]/text()').extract_first()
 		no_content = response.xpath("//div[@class='article']//p[@class='pl2']/text()").extract_first()
 		tag = response.xpath("//span[@class='tags-name']/text()").extract_first()
-		
+		if tag is None:
+			return
 		# no content
 		if this_page_num is None and no_content and "没有找到符合条件的电影" in no_content:
 			print('finish process tag %s with total count %d'%(tag,total_count))
 			self.tag_col.find_one_and_update({'tag':tag},{'$set':{'state':2}})
 			#find an random tag
-			un_mined_tag = self.tag_col.find_one({'state':0})
+			un_mined_tag = self.tag_col.find({'state':0},{'tag':1})
+			tag_count = un_mined_tag.count()
+			random_index = randint(0,tag_count-1)
 			if un_mined_tag:
-				print("go to mine tag %s"%(un_mined_tag))
-				yield Request(self.tag_url+un_mined_tag['tag'] + "?type=O",callback=self.parse_page)
+				print("go to mine tag %s"%(un_mined_tag[random_index]))
+				yield Request(self.tag_url+un_mined_tag[random_index]['tag'] + "?type=O",callback=self.parse_page)
 		# has content
 		else:		
 			this_page_num = int(this_page_num if this_page_num else "1")
