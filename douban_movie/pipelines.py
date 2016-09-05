@@ -12,9 +12,8 @@ from pymongo import MongoClient
 
 client = MongoClient()
 db = client.movie
-movies = db.movie_test
+movies = db.movies_info
 movie_id_list = db.id_list
-tags = db.tags
 
 class DoubanMovieIdListPipelineWithMongoDB(object):
 	def process_item(self,item,spider):
@@ -38,6 +37,7 @@ class DoubanMoviePipelineWithMongoDB(object):
 				logging.info("Movie %s to database with id %s is already in database"%(item['movie_name'],item['movie_id']))
 				pass
 			else:
+				movie_id_list.find_one_and_update({'movie_id':item['movie_id']},{'$set':{'parsed':True}})
 				movies.insert_one(dict(item))
 				logging.info("Added movie %s to database with id %s"%(item['movie_name'],item['movie_id']))
 		except Exception,e:

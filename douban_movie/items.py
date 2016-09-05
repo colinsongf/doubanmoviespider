@@ -21,7 +21,10 @@ class DoubanMovieIdItem(Item):
 	page = Field()
 
 class DoubanMovieItem(Item):
-    # define the fields for your item here like:
+    # 电视剧信息
+	is_episode = Field()
+	episode_num = Field()
+	
 	#电影ID
 	movie_id = Field()
 	#电影名称
@@ -36,6 +39,8 @@ class DoubanMovieItem(Item):
 	movie_wishes = Field()
 	#电影上映年份
 	movie_year = Field()
+	#电影首映时间
+	movie_initial_release_date = Field()
 	#电影导演
 	movie_director = Field()
 	#电影编辑
@@ -48,7 +53,7 @@ class DoubanMovieItem(Item):
 	movie_region = Field()
 	#电影语言
 	movie_language = Field()
-	#电影时长
+	#电影时长，电视剧则为单集时长
 	movie_time = Field()
 	#电影别名
 	movie_dialect = Field()
