@@ -42,7 +42,7 @@ class DoubanListSpider(CrawlSpider):
 	name = "doubanlist"
 	allowed_domain = ["movie.douban.com"]
 	
-	 prefix_url  = "https://movie.douban.com/"
+	prefix_url  = "https://movie.douban.com/subject/"
 	
 	# not used here
 	start_urls = [
@@ -55,7 +55,7 @@ class DoubanListSpider(CrawlSpider):
 		self.db = self.client.movie
 		self.ids = self.db.id_list
 		
-		allidslist = self.ids.find({},{'movie_id',1})
+		allidslist = self.ids.find({},{'movie_id':1})
 		print("all id number = %d"%(allidslist.count()))
 		for idx in allidslist:
 			allids[idx['movie_id']] = True
@@ -71,10 +71,10 @@ class DoubanListSpider(CrawlSpider):
 		global parsedids
 		
 		#response not used here, just use this method to start parse
-		not_parsed_ids = self.ids.find({'parsed':False},{'movie_id':1})
+		not_parsed_ids = self.ids.find({'$and':[{'parsed':False},{'attempt':{'$lte':10}}]})
 		print("not mined movies %d"%(not_parsed_ids.count()))
 		for id in not_parsed_ids:
-			yield Request(prefix_url+str(id['movie_id']), callback = self.parse_item)
+			yield Request(self.prefix_url+str(id['movie_id']), callback = self.parse_item)
 	
 	def add_array(self,name,arr,item):
 		item[name]=[]
@@ -118,13 +118,13 @@ class DoubanListSpider(CrawlSpider):
 			
 			# initial release date
 			release_date = response.xpath("//span[@property='v:initialReleaseDate']/@content").extract_first()
-			item['movie_initial_release_date'] = release_date
+			item['movie_initial_release_date'] = release_date if release_date else "-1"
 			
 			# get hot short comments
 			comments = response.xpath("//div[@id='hot-comments']//div[@class='comment-item']//div[@class='comment']/p/text()").extract()
 			votes = response.xpath("//div[@id='hot-comments']//div[@class='comment-item']//div[@class='comment']//span[@class='votes pr5']/text()").extract()
 			rates = response.xpath("//div[@id='hot-comments']//div[@class='comment-item']//span[@class='comment-info']/span[1]/@title").extract()
-			if len(comments) == len(votes) and len(votes) == len(rates):
+			if comments and len(comments) == len(votes) and len(votes) == len(rates):
 				commentsarray = []
 				for i in range(len(votes)):
 					short_comments = {}
@@ -151,22 +151,26 @@ class DoubanListSpider(CrawlSpider):
 			
 			#same region for movie and episode
 			director = info.xpath("span[1]/span[2]/a/text()").extract()
-			self.add_array("movie_director",director,item)
+			if director:
+				self.add_array("movie_director",director,item)
 			
 			writor = info.xpath("span[2]/span[2]/a/text()").extract()
-			self.add_array("movie_writor",writor,item)
+			if writor:
+				self.add_array("movie_writor",writor,item)
 			
 			actors = info.xpath("span[@class='actor']/span[2]/a/text()").extract()
-			self.add_array("movie_actors",actors,item)
+			if actors:
+				self.add_array("movie_actors",actors,item)
 
 			types = info.xpath("span[@property='v:genre']/text()").extract()
-			self.add_array("movie_type",types,item)
+			if types:
+				self.add_array("movie_type",types,item)
 			
 			try:
 				lang = re.search(language_pattern,infostr)
 				if lang:
 					language = lang.group(1).strip()
-					item["movie_language"] = language.strip()
+					item["movie_language"] = language
 			except:
 				pass
 
@@ -174,7 +178,7 @@ class DoubanListSpider(CrawlSpider):
 				regionmatch = re.search(region_pattern,infostr)
 				if regionmatch:
 					region = regionmatch.group(1).strip()
-					item["movie_region"] = region.strip()
+					item["movie_region"] = region
 			except:
 				pass
 			
@@ -182,18 +186,20 @@ class DoubanListSpider(CrawlSpider):
 				dialectmatch = re.search(dialect_pattern,infostr)
 				if dialectmatch:
 					dialect = dialectmatch.group(1).strip()
-					item["movie_dialect"] = dialect.strip()
+					item["movie_dialect"] = dialect
 			except:
 				pass
 			
-			desc = response.xpath("//span[@property='v:summary']/node()").extract_first().strip()
+			desc = response.xpath("//span[@property='v:summary']/node()").extract_first()
 			item["movie_desc"] = desc.strip() if desc else ""
 			
 			tags = response.xpath("//div[@class='tags-body']/a/text()").extract()
-			self.add_array("movie_tags",tags,item)
+			if tags:
+				self.add_array("movie_tags",tags,item)
 			
 			pic = response.xpath("//div[@id='mainpic']/a/img/@src").extract_first()
-			item["movie_pic_url"] = pic
+			if pic:
+				item["movie_pic_url"] = pic
 			#end same region
 			
 			if is_episoder:
@@ -220,8 +226,8 @@ class DoubanListSpider(CrawlSpider):
 			if next_pages:
 				for page in next_pages:
 					idn = int(page.split('/')[-2])
-					if allids[idn] = False:
-					print("find new movie with id %d"%(idn))
+					if allids[idn] == False:
+						print("find new movie with id %d"%(idn))
 						idItem = DoubanMovieIdItem()
 						idItem["parsed"] = False
 						idItem["movie_id"] = idn
@@ -231,6 +237,7 @@ class DoubanListSpider(CrawlSpider):
 		except Exception,e:
 			# do nothing
 			logging.info("Parse error:%s"%(str(e)))
+			self.ids.find_one_and_update({'movie_id':item['movie_id']},{'$inc':{'attempt':1}})
 			print("failed_count = %d"%(failed_count+1))
 			failed_count += 1
 			pass

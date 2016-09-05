@@ -18,31 +18,34 @@ movie_id_list = db.id_list
 class DoubanMovieIdListPipelineWithMongoDB(object):
 	def process_item(self,item,spider):
 		global movie_id_list
-		if spider.name != "doubanidlist":
-			return
-		try:
-			movie_id_list.insert_one(dict(item))
-		except Exception,e:
-			print Exception,":",e
-			pass
+		if spider.name == "doubanidlist":
+			try:
+				movie_id_list.insert_one(dict(item))
+			except Exception,e:
+				print Exception,":",e
+				pass
+		else:
+			return item
 			
 class DoubanMoviePipelineWithMongoDB(object):	
 	def process_item(self,item,spider):
 		global movies
-		if spider.name != "doubanlist":
-			return
-		try:
-			ret = movies.find_one({"movie_id":item['movie_id']})
-			if ret:
-				logging.info("Movie %s to database with id %s is already in database"%(item['movie_name'],item['movie_id']))
-				pass
-			else:
-				movie_id_list.find_one_and_update({'movie_id':item['movie_id']},{'$set':{'parsed':True}})
-				movies.insert_one(dict(item))
-				logging.info("Added movie %s to database with id %s"%(item['movie_name'],item['movie_id']))
-		except Exception,e:
-			print("error when insert movie %s with id %s"%(item['movie_name'],item['movie_id']))
-			print Exception,":",e
+		if spider.name == "doubanlist":
+			try:
+				ret = movies.find_one({"movie_id":item['movie_id']})
+				if ret:
+					logging.info("Movie %s to database with id %d is already in database"%(item['movie_name'],item['movie_id']))
+					pass
+				else:
+					print(" insert movie %s with id %d"%(item['movie_name'],item['movie_id']))
+					movie_id_list.find_one_and_update({'movie_id':item['movie_id']},{'$set':{'parsed':True}})
+					movies.insert_one(dict(item))
+					logging.info("Added movie %s to database with id %d"%(item['movie_name'],item['movie_id']))
+			except Exception,e:
+				print("error when insert movie %s with id %s"%(item['movie_name'],item['movie_id']))
+				print Exception,":",e
+		else:
+			return item
 
 
 			
