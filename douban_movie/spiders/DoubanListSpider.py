@@ -191,7 +191,9 @@ class DoubanListSpider(CrawlSpider):
 				pass
 			
 			desc = response.xpath("//span[@property='v:summary']/node()").extract_first()
-			item["movie_desc"] = desc.strip() if desc else ""
+			desc = desc.strip() if desc else ""
+			desc_all = response.xpath("//span[@class='all hidden']/text()").extract_first()
+			item["movie_desc"] = desc_all.strip() if desc_all else desc
 			
 			tags = response.xpath("//div[@class='tags-body']/a/text()").extract()
 			if tags:
