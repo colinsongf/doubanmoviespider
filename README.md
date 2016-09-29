@@ -36,3 +36,4 @@ One of the nice feature of douban movie is each movie has a unique id, so my bas
 ## To-do
 - Can't parse televation information
 - Slow, try to use proxy
+- Test
